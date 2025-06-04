@@ -3,15 +3,49 @@ import { executeQuery } from '@/lib/db';
 
 export async function GET() {
   try {
-    const rows = await executeQuery<{ id: string; name: string; email: string; courses: string; addedAt: Date }[]>('SELECT id, name, email, courses, addedAt FROM students');
+    const rows = await executeQuery<{ id: string; name: string; email: string; courses: string | null; addedAt: Date | null }[]>('SELECT id, name, email, courses, addedAt FROM students');
 
-    const students = rows.map(row => ({
-      id: row.id.toString(),
-      name: row.name,
-      email: row.email,
-      courses: row.courses ? JSON.parse(row.courses) : [],
-      addedAt: row.addedAt ? new Date(row.addedAt).toISOString() : null,
-    }));
+    const students = rows.map(row => {
+      let parsedCourses = [];
+      if (row.courses) {
+        try {
+          parsedCourses = JSON.parse(row.courses);
+          // Ensure parsedCourses is an array, default to empty array if not
+          if (!Array.isArray(parsedCourses)) {
+              parsedCourses = [];
+          }
+        } catch (parseError) {
+          console.error(`Failed to parse courses for student ID ${row.id}:`, parseError);
+          // Default to empty array on parse error
+          parsedCourses = [];
+        }
+      }
+
+      let formattedAddedAt = null;
+      if (row.addedAt) {
+          try {
+              const date = new Date(row.addedAt);
+              // Check if the date is valid
+              if (!isNaN(date.getTime())) {
+                  formattedAddedAt = date.toISOString();
+              } else {
+                  console.error(`Invalid addedAt date for student ID ${row.id}:`, row.addedAt);
+              }
+          } catch (dateError) {
+               console.error(`Failed to process addedAt for student ID ${row.id}:`, dateError);
+          }
+      }
+
+
+      return {
+        id: row.id.toString(),
+        name: row.name,
+        email: row.email,
+        courses: parsedCourses,
+        addedAt: formattedAddedAt,
+      };
+    });
+
     return NextResponse.json(students);
 
   } catch (error: any) {

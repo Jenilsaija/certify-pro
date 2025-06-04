@@ -4,11 +4,13 @@ import type React from "react";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Edit, MoreHorizontal, Plus, Trash, Upload, Loader2 } from "lucide-react";
+import { Edit, MoreHorizontal, Plus, Trash, Upload, Loader2, Users } from "lucide-react"; // Import Users icon
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"; // Import AlertDialog components
+import { useToast } from '@/components/ui/use-toast'; // Assuming you have a toast component
 
 interface Student {
   id: string;
@@ -22,47 +24,76 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); // State for dialog visibility
+  const [studentToDeleteId, setStudentToDeleteId] = useState<string | null>(null); // State to store ID of student to delete
+  const [isDeleting, setIsDeleting] = useState(false); // State to indicate deletion in progress
+
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const response = await fetch("/api/students"); // Assuming your API endpoint is /api/students
+        const response = await fetch("/api/students");
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        // Assuming the API returns an array of student objects with the correct structure
         setStudents(data);
       } catch (error: any) {
         console.error("Error fetching students:", error);
         setError("Failed to load students.");
+        toast({
+            title: "Error",
+            description: "Failed to load students.",
+            variant: "destructive",
+          });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchStudents();
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, [toast]);
 
-  // Function to handle student deletion (placeholder)
-  const handleDelete = async (studentId: string) => {
-    if (confirm("Are you sure you want to delete this student?")) {
-      // Implement API call to delete student
-      console.log("Deleting student with ID:", studentId);
-      // try {
-      //   const response = await fetch(`/api/students/${studentId}`, {
-      //     method: 'DELETE',
-      //   });
-      //   if (!response.ok) {
-      //     throw new Error(`HTTP error! status: ${response.status}`);
-      //   }
-      //   // Remove the deleted student from the local state
-      //   setStudents(students.filter(student => student.id !== studentId));
-      //   console.log("Student deleted successfully");
-      // } catch (error) {
-      //   console.error("Error deleting student:", error);
-      //   alert("Failed to delete student.");
-      // }
+  // Function to open the delete confirmation modal
+  const handleDeleteClick = (studentId: string) => {
+    setStudentToDeleteId(studentId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Function to perform the actual deletion after confirmation
+  const confirmDelete = async () => {
+    if (!studentToDeleteId) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/students/${studentToDeleteId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      // Remove the deleted student from the local state
+      setStudents(students.filter(student => student.id !== studentToDeleteId));
+      toast({
+        title: "Success",
+        description: "Student deleted successfully.",
+      });
+
+    } catch (error: any) {
+      console.error("Error deleting student:", error);
+       toast({
+          title: "Error",
+          description: `Failed to delete student: ${error.message}`,
+          variant: "destructive",
+        });
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false); // Close the dialog
+      setStudentToDeleteId(null); // Reset the ID
     }
   };
 
@@ -95,7 +126,11 @@ export default function StudentsPage() {
           ) : error ? (
             <div className="flex justify-center items-center p-8 text-red-500">{error}</div>
           ) : students.length === 0 ? (
-            <div className="flex justify-center items-center p-8">No students found.</div>
+            // Display message and icon when no students are found
+            <div className="flex flex-col items-center justify-center p-8 text-muted-foreground text-center">
+              <Users className="w-16 h-16 mb-4" />
+              <p>No students found.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -122,10 +157,9 @@ export default function StudentsPage() {
                           >
                             {course}
                           </span>
-                        )) : null} {/* Render nothing if courses is not an array */}
+                        )) : null}
                       </div>
                     </TableCell>
-                    {/* Add a check for student.addedAt before calling toLocaleDateString */}
                     <TableCell>{student.addedAt ? new Date(student.addedAt).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -136,13 +170,19 @@ export default function StudentsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <Link href={`/dashboard/students/${student.id}/edit`}>
-                            <DropdownMenuItem>
+                          <Link href={`/dashboard/students/edit/${student.id}`}>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}> {/* Prevent closing dropdown on click */}
                               <Edit className="mr-2 h-4 w-4" />
                               <span>Edit</span>
                             </DropdownMenuItem>
                           </Link>
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(student.id)}>
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onSelect={(e) => {
+                                e.preventDefault(); // Prevent closing dropdown on click
+                                handleDeleteClick(student.id);
+                            }}
+                          >
                             <Trash className="mr-2 h-4 w-4" />
                             <span>Delete</span>
                           </DropdownMenuItem>
@@ -156,6 +196,30 @@ export default function StudentsPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation AlertDialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the student
+              and remove their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} variant="destructive">
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash className="mr-2 h-4 w-4" />
+              )}
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
