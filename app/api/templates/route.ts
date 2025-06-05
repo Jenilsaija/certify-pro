@@ -37,5 +37,31 @@ export async function GET() {
   }
 }
 
-// You might also want to add POST, PUT, DELETE routes for templates
-// For now, let's focus on the GET route to display templates.
+export async function POST(request: Request) {
+  try {
+    const { name, thumbnail, placeholders } = await request.json();
+
+    // Basic validation
+    if (!name) {
+      return NextResponse.json({ message: 'Template name is required' }, { status: 400 });
+    }
+
+    // Serialize placeholders to JSON string if provided
+    const placeholdersJson = placeholders ? JSON.stringify(placeholders) : null;
+
+    // Insert the new template
+    const result = await executeQuery<{ insertId: number }>(
+      'INSERT INTO templates (name, thumbnail, placeholders, createdAt) VALUES (?, ?, ?, NOW())',
+      [name, thumbnail, placeholdersJson]
+    );
+
+    return NextResponse.json({
+      message: 'Template created successfully',
+      id: result.insertId.toString()
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('API error creating template:', error);
+    return NextResponse.json({ message: 'Internal server error', error: error.message }, { status: 500 });
+  }
+}

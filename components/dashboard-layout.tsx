@@ -28,6 +28,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Templates", href: "/dashboard/templates", icon: FileText },
     { name: "Students", href: "/dashboard/students", icon: Users },
     { name: "Generate Certificates", href: "/dashboard/generate", icon: Award },
+    { name: "Certificates", href: "/dashboard/certificates", icon: FileText },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
 

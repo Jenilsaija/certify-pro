@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Loader2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,62 +11,87 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DashboardLayout } from "@/components/dashboard-layout"
 
 export default function SettingsPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState({
-    fullName: "John Doe",
-    organizationName: "Acme Education",
-    email: "john.doe@example.com",
-  })
+    fullName: "",
+    organizationName: "",
+    email: "",
+  });
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
-  })
+  });
+
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const response = await fetch('/api/profile');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setProfileData(data);
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      }
+    }
+    fetchProfile();
+  }, []);
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setProfileData((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setProfileData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setPasswordData((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
 
     try {
-      // This would be replaced with an actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      // Show success message
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullName: profileData.fullName, organizationName: profileData.organizationName }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      console.log('Profile updated successfully');
     } catch (error) {
-      console.error("Profile update error:", error)
+      console.error("Profile update error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
 
     try {
-      // This would be replaced with an actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // This would be replaced with an actual API call for password change
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       setPasswordData({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
-      })
-      // Show success message
+      });
+      console.log('Password changed successfully');
     } catch (error) {
-      console.error("Password change error:", error)
+      console.error("Password change error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <DashboardLayout>
@@ -193,5 +218,5 @@ export default function SettingsPage() {
         </div>
       </div>
     </DashboardLayout>
-  )
+  );
 }

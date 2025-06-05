@@ -1,12 +1,14 @@
 "use client";
 import Link from "next/link"
 import Image from "next/image"
-import { Edit, MoreHorizontal, Plus, Trash } from "lucide-react"
+import { Edit, MoreHorizontal, Plus, Trash, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { useEffect, useState } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface Template {
   id: string;
@@ -19,6 +21,11 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [templateToDeleteId, setTemplateToDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const { toast } = useToast();
 
   useEffect(() => {
     async function fetchTemplates() {
@@ -97,11 +104,16 @@ export default function TemplatesPage() {
                             <span>Edit</span>
                           </DropdownMenuItem>
                         </Link>
-                        {/* Add a delete action if needed */}
-                        {/* <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          className="text-red-600" 
+                          onClick={() => {
+                            setTemplateToDeleteId(template.id);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                        >
                           <Trash className="mr-2 h-4 w-4" />
                           <span>Delete</span>
-                        </DropdownMenuItem> */}
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -111,6 +123,67 @@ export default function TemplatesPage() {
           )}
         </div>
       </div>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the template and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!templateToDeleteId) return;
+                
+                setIsDeleting(true);
+                try {
+                  const response = await fetch(`/api/templates/${templateToDeleteId}`, {
+                    method: 'DELETE',
+                  });
+                  
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                  }
+                  
+                  // Remove the deleted template from the local state
+                  setTemplates(templates.filter(template => template.id !== templateToDeleteId));
+                  toast({
+                    title: "Success",
+                    description: "Template deleted successfully.",
+                  });
+                  
+                } catch (error: any) {
+                  console.error("Error deleting template:", error);
+                  toast({
+                    title: "Error",
+                    description: `Failed to delete template: ${error.message}`,
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsDeleting(false);
+                  setIsDeleteDialogOpen(false);
+                  setTemplateToDeleteId(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

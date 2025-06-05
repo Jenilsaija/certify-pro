@@ -32,12 +32,52 @@ export default function NewTemplatePage() {
     setIsLoading(true)
 
     try {
-      // This would be replaced with an actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      router.push("/dashboard/templates")
-    } catch (error) {
+      if (!file || !templateName) {
+        throw new Error("Template name and file are required")
+      }
+
+      // Convert file to base64 for storage
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      
+      reader.onload = async () => {
+        try {
+          const base64String = reader.result as string
+          
+          // Call the API to create a new template
+          const response = await fetch("/api/templates", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: templateName,
+              thumbnail: base64String,
+              placeholders: [] // Initialize with empty placeholders
+            }),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+          }
+
+          router.push("/dashboard/templates")
+        } catch (error: any) {
+          console.error("Template upload error:", error)
+          alert(`Failed to upload template: ${error.message}`)
+          setIsLoading(false)
+        }
+      }
+
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error)
+        alert("Error reading file. Please try again.")
+        setIsLoading(false)
+      }
+    } catch (error: any) {
       console.error("Template upload error:", error)
-    } finally {
+      alert(`Failed to upload template: ${error.message}`)
       setIsLoading(false)
     }
   }

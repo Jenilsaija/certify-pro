@@ -1,8 +1,6 @@
-"use client"
-
+"use client";
 import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Loader2, Plus, X } from "lucide-react"
@@ -23,19 +21,45 @@ interface Placeholder {
 export default function EditTemplatePage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-  const [templateName, setTemplateName] = useState("Professional Certificate")
-  const [placeholders, setPlaceholders] = useState<Placeholder[]>([
-    { id: "1", name: "Student Name", key: "student_name", x: 50, y: 40 },
-    { id: "2", name: "Course Name", key: "course_name", x: 50, y: 50 },
-    { id: "3", name: "Completion Date", key: "completion_date", x: 50, y: 60 },
-    { id: "4", name: "Certificate ID", key: "certificate_id", x: 50, y: 70 },
-  ])
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(true)
+  const [templateName, setTemplateName] = useState("")
+  const [templateThumbnail, setTemplateThumbnail] = useState("/placeholder.svg")
+  const [placeholders, setPlaceholders] = useState<Placeholder[]>([])
+  const [error, setError] = useState<string | null>(null)
   const [newPlaceholder, setNewPlaceholder] = useState({
     name: "",
     key: "",
     x: 50,
     y: 50,
   })
+  
+  // Fetch template data when component mounts
+  useEffect(() => {
+    async function fetchTemplate() {
+      try {
+        const id = params?.id;
+        const response = await fetch(`/api/templates/${id}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setTemplateName(data.name);
+        if (data.thumbnail) {
+          setTemplateThumbnail(data.thumbnail);
+        }
+        if (data.placeholders && Array.isArray(data.placeholders)) {
+          setPlaceholders(data.placeholders);
+        }
+      } catch (error: any) {
+        console.error("Error fetching template:", error);
+        setError(error.message);
+      } finally {
+        setIsLoadingTemplate(false);
+      }
+    }
+
+    fetchTemplate();
+  }, [params.id]);
 
   const handleAddPlaceholder = () => {
     if (newPlaceholder.name && newPlaceholder.key) {
@@ -68,11 +92,28 @@ export default function EditTemplatePage({ params }: { params: { id: string } })
     setIsLoading(true)
 
     try {
-      // This would be replaced with an actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Call the API to update the template
+      const id = params?.id;
+      const response = await fetch(`/api/templates/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: templateName,
+          placeholders: placeholders,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
       router.push("/dashboard/templates")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Template update error:", error)
+      alert(`Failed to update template: ${error.message}`)
     } finally {
       setIsLoading(false)
     }
@@ -95,12 +136,18 @@ export default function EditTemplatePage({ params }: { params: { id: string } })
               </CardHeader>
               <CardContent>
                 <div className="relative aspect-[3/2] overflow-hidden rounded-md border">
-                  <Image
-                    src="/placeholder.svg?height=400&width=600"
-                    alt="Certificate template"
-                    fill
-                    className="object-cover"
-                  />
+                  {isLoadingTemplate ? (
+                    <div className="flex h-full items-center justify-center bg-muted">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <Image
+                      src={templateThumbnail}
+                      alt="Certificate template"
+                      fill
+                      className="object-cover"
+                    />
+                  )}
                   {placeholders.map((placeholder) => (
                     <div
                       key={placeholder.id}

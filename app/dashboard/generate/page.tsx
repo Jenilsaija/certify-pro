@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { CalendarIcon, CheckCircle, ChevronRight, Loader2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { CalendarIcon, CheckCircle, ChevronRight, Loader2, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Student {
   id: string
@@ -26,20 +27,12 @@ interface Template {
   name: string
 }
 
-const templates: Template[] = [
-  { id: "1", name: "Professional Certificate" },
-  { id: "2", name: "Course Completion" },
-  { id: "3", name: "Workshop Attendance" },
-]
-
-const students: Student[] = [
-  { id: "1", name: "John Doe", email: "john.doe@example.com" },
-  { id: "2", name: "Jane Smith", email: "jane.smith@example.com" },
-  { id: "3", name: "Mike Johnson", email: "mike.johnson@example.com" },
-  { id: "4", name: "Sarah Wilson", email: "sarah.wilson@example.com" },
-]
-
 export default function GeneratePage() {
+  const { toast } = useToast()
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  const [dataError, setDataError] = useState<string | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
@@ -49,6 +42,39 @@ export default function GeneratePage() {
   const [courseName, setCourseName] = useState("")
   const [completionDate, setCompletionDate] = useState<Date>()
   const [instructorName, setInstructorName] = useState("")
+  
+  // Fetch templates and students when component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoadingData(true)
+      setDataError(null)
+      
+      try {
+        // Fetch templates
+        const templatesResponse = await fetch('/api/templates')
+        if (!templatesResponse.ok) {
+          throw new Error('Failed to fetch templates')
+        }
+        const templatesData = await templatesResponse.json()
+        setTemplates(templatesData)
+        
+        // Fetch students
+        const studentsResponse = await fetch('/api/students')
+        if (!studentsResponse.ok) {
+          throw new Error('Failed to fetch students')
+        }
+        const studentsData = await studentsResponse.json()
+        setStudents(studentsData)
+      } catch (error) {
+        console.error('Error fetching data:', error)
+        setDataError('Failed to load templates or students. Please refresh the page.')
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+    
+    fetchData()
+  }, [])
 
   const handleStudentToggle = (studentId: string) => {
     setSelectedStudents((prev) =>
@@ -60,11 +86,47 @@ export default function GeneratePage() {
     setIsLoading(true)
 
     try {
-      // This would be replaced with an actual API call
-      await new Promise((resolve) => setTimeout(resolve, 3000))
+      // Format the date for the API
+      const formattedDate = completionDate ? completionDate.toISOString().split('T')[0] : '';
+      
+      // Call the certificates API
+      const response = await fetch('/api/certificates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          templateId: selectedTemplate,
+          studentIds: selectedStudents,
+          courseName,
+          completionDate: formattedDate,
+          instructorName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.message || 'Failed to generate certificates',
+          variant: "destructive"
+        });
+        return;
+      }
+      
       setIsComplete(true)
-    } catch (error) {
-      console.error("Certificate generation error:", error)
+      toast({
+        title: "Success",
+        description: "Certificates generated successfully",
+        variant: "default"
+      });
+    } catch (error: any) {
+      console.error("Certificate generation error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false)
     }
@@ -88,6 +150,40 @@ export default function GeneratePage() {
                 {selectedStudents.length} certificates have been generated and are being sent to students.
               </p>
               <Button onClick={() => window.location.reload()}>Generate More Certificates</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show loading state while fetching data
+  if (isLoadingData) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="mt-2 text-sm text-muted-foreground">Loading templates and students...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Show error message if data fetching failed
+  if (dataError) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Card className="w-full max-w-md text-center">
+            <CardContent className="pt-6">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <XCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="mb-2 text-lg font-medium">Error Loading Data</h3>
+              <p className="mb-4 text-sm text-muted-foreground">{dataError}</p>
+              <Button onClick={() => window.location.reload()}>Refresh Page</Button>
             </CardContent>
           </Card>
         </div>

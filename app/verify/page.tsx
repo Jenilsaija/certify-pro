@@ -27,22 +27,21 @@ export default function VerifyPage() {
     setIsLoading(true)
 
     try {
-      // This would be replaced with an actual API call
-      // Simulating API response for demo purposes
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Call the verify API
+      const response = await fetch('/api/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ certificateId }),
+      })
 
-      if (certificateId === "CERT123456") {
-        setResult({
-          isValid: true,
-          studentName: "John Doe",
-          courseName: "Web Development Masterclass",
-          issueDate: "June 15, 2023",
-        })
-      } else {
-        setResult({
-          isValid: false,
-        })
+      if (!response.ok) {
+        throw new Error('Failed to verify certificate')
       }
+
+      const data = await response.json()
+      setResult(data)
     } catch (error) {
       console.error("Verification error:", error)
       setResult({

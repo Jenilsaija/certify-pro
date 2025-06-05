@@ -8,7 +8,8 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "CertifyPro - Certificate Generator",
   description: "Create, manage, and send digital certificates of completion",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  viewport: 'width=device-width, initial-scale=1.0'
 }
 
 export default function RootLayout({

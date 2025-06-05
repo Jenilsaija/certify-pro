@@ -33,7 +33,8 @@ export default function EditStudentPage() {
     const fetchStudent = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/students/${id}`);
+        const studentId = id;
+        const res = await fetch(`/api/students/${studentId}`);
         if (!res.ok) {
           const errorData = await res.json();
           throw new Error(errorData.message || 'Failed to fetch student');
@@ -74,7 +75,8 @@ export default function EditStudentPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/students/${student.id}`, {
+      const studentId = id;
+      const res = await fetch(`/api/students/${studentId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
